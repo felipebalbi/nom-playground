@@ -19,11 +19,13 @@ fn parse_calories(input: &str) -> IResult<&str, Vec<Calorie>> {
 }
 
 pub fn part1(input: &str) -> u32 {
-    parse_calories(input).unwrap().1.into_iter().max().unwrap()
+    let (_, result) = parse_calories(input).unwrap();
+
+    result.into_iter().max().unwrap()
 }
 
 pub fn part2(input: &str) -> u32 {
-    let mut result = parse_calories(input).unwrap().1;
+    let (_, mut result) = parse_calories(input).unwrap();
 
     result.sort_by_key(|k| Reverse(*k));
 
