@@ -7,7 +7,7 @@ use nom::{
     IResult,
 };
 
-type Priority = i32;
+type Priority = u32;
 type Type = char;
 type Item = (Priority, Type);
 type Compartment = Vec<Item>;
@@ -40,11 +40,11 @@ impl Cli {
     }
 }
 
-fn char_to_priority(c: char) -> i32 {
+fn char_to_priority(c: char) -> u32 {
     if c.is_uppercase() {
-        (c as i32) - ('A' as i32) + 27
+        (c as u32) - ('A' as u32) + 27
     } else {
-        (c as i32) - ('a' as i32) + 1
+        (c as u32) - ('a' as u32) + 1
     }
 }
 
@@ -70,11 +70,11 @@ fn parse_input_part1(input: &str) -> IResult<&str, Vec<Rucksack>> {
 }
 
 fn parse_input_part2(input: &str) -> IResult<&str, Vec<Rucksack>> {
-    todo!()
+    parse_input_part1(input)
 }
 
 fn part1(input: &str) -> u32 {
-    let (input, rucksacks) = parse_input_part1(input).unwrap();
+    let (_, rucksacks) = parse_input_part1(input).unwrap();
 
     let mut priorities = 0;
 
@@ -94,11 +94,46 @@ fn part1(input: &str) -> u32 {
         priorities += priority;
     }
 
-    priorities as u32
+    priorities
 }
 
 fn part2(input: &str) -> u32 {
-    42
+    let (_, rucksacks) = parse_input_part2(input).unwrap();
+
+    let mut badges = 0;
+
+    let groups = rucksacks
+        .into_iter()
+        .map(|(mut left, mut right)| {
+            left.append(&mut right);
+            left
+        })
+        .collect::<Vec<_>>();
+
+    for chunk in groups.chunks(3) {
+        let one = &mut chunk[0].to_owned();
+        let two = &mut chunk[1].to_owned();
+        let three = &mut chunk[2].to_owned();
+
+        one.sort();
+        one.dedup();
+
+        two.sort();
+        two.dedup();
+
+        three.sort();
+        three.dedup();
+
+        let badge = one
+            .into_iter()
+            .filter(|item| two.contains(item) && three.contains(item))
+            .map(|(p, _)| *p)
+            .fold(0, |acc, p| acc + p);
+
+        badges += badge;
+    }
+
+    badges
 }
 
 #[cfg(test)]
@@ -128,6 +163,6 @@ ttgJtRGJQctTZtZT
 CrZsJsPPZsGzwwsLwLmpwMDw
 ";
 
-        assert_eq!(part2(input), 42);
+        assert_eq!(part2(input), 70);
     }
 }
