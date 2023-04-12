@@ -2,7 +2,8 @@ use clap::Parser;
 use nom::{
     character::complete::{self, newline},
     combinator::map,
-    multi::separated_list1,
+    multi::many1,
+    sequence::terminated,
     IResult,
 };
 
@@ -41,9 +42,9 @@ impl Cli {
 
 fn char_to_priority(c: char) -> i32 {
     if c.is_uppercase() {
-        (c as i32) - ('A' as i32)
+        (c as i32) - ('A' as i32) + 27
     } else {
-        (c as i32) - ('a' as i32)
+        (c as i32) - ('a' as i32) + 1
     }
 }
 
@@ -55,11 +56,17 @@ fn parse_item(input: &str) -> IResult<&str, Item> {
 }
 
 fn parse_rucksack(input: &str) -> IResult<&str, Rucksack> {
-    todo!()
+    let (input, items) = many1(parse_item)(input)?;
+    let mid = items.len() / 2;
+    let (left, right) = items.split_at(mid);
+
+    let rucksack = (left.to_owned(), right.to_owned());
+
+    Ok((input, rucksack))
 }
 
 fn parse_input_part1(input: &str) -> IResult<&str, Vec<Rucksack>> {
-    todo!()
+    many1(terminated(parse_rucksack, newline))(input)
 }
 
 fn parse_input_part2(input: &str) -> IResult<&str, Vec<Rucksack>> {
@@ -67,7 +74,27 @@ fn parse_input_part2(input: &str) -> IResult<&str, Vec<Rucksack>> {
 }
 
 fn part1(input: &str) -> u32 {
-    42
+    let (input, rucksacks) = parse_input_part1(input).unwrap();
+
+    let mut priorities = 0;
+
+    for (mut left, mut right) in rucksacks {
+        left.sort();
+        left.dedup();
+
+        right.sort();
+        right.dedup();
+
+        let priority: Priority = left
+            .into_iter()
+            .filter(|item| right.contains(item))
+            .map(|(p, _)| p)
+            .fold(0, |acc, p| acc + p);
+
+        priorities += priority;
+    }
+
+    priorities as u32
 }
 
 fn part2(input: &str) -> u32 {
@@ -85,7 +112,8 @@ jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL
 PmmdzqPrVvPwwTWBwg
 wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn
 ttgJtRGJQctTZtZT
-CrZsJsPPZsGzwwsLwLmpwMDw";
+CrZsJsPPZsGzwwsLwLmpwMDw
+";
 
         assert_eq!(part1(input), 157);
     }
@@ -97,7 +125,8 @@ jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL
 PmmdzqPrVvPwwTWBwg
 wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn
 ttgJtRGJQctTZtZT
-CrZsJsPPZsGzwwsLwLmpwMDw";
+CrZsJsPPZsGzwwsLwLmpwMDw
+";
 
         assert_eq!(part2(input), 42);
     }
