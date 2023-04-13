@@ -12,7 +12,7 @@ use std::ops::RangeInclusive;
 #[command(
     name = "aoc2022d4",
     author = "Felipe Balbi <felipe@balbi.sh>",
-    about = "Advent of Code 2022 Day 3",
+    about = "Advent of Code 2022 Day 4",
     version = "0.1.0"
 )]
 pub struct Cli {
