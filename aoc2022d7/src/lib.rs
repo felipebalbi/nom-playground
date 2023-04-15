@@ -5,7 +5,7 @@ use nom::{
     branch::alt,
     bytes::complete::{is_a, tag},
     character::complete::{self, alpha1, line_ending, not_line_ending, space1},
-    combinator::{map, opt},
+    combinator::map,
     multi::separated_list1,
     sequence::{separated_pair, terminated, tuple},
     IResult,
@@ -54,13 +54,13 @@ enum Command<'a> {
 #[derive(Debug)]
 enum Inode<'a> {
     Dir(&'a str),
-    File { name: &'a str, size: u32 },
+    File { size: u32 },
 }
 
 fn file(input: &str) -> IResult<&str, Inode> {
     map(
         separated_pair(complete::u32, space1, is_a("abcdefghijklmnopqrstuvwxyz.")),
-        |(size, name)| Inode::File { name, size },
+        |(size, _)| Inode::File { size },
     )(input)
 }
 
@@ -100,8 +100,8 @@ fn parse_input_part1(input: &str) -> IResult<&str, Vec<Command>> {
     commands(input)
 }
 
-fn parse_input_part2(input: &str) -> IResult<&str, ()> {
-    todo!()
+fn parse_input_part2(input: &str) -> IResult<&str, Vec<Command>> {
+    parse_input_part1(input)
 }
 
 fn fold_sizes<'a>(
@@ -155,8 +155,28 @@ fn part1(input: &str) -> u32 {
         .sum::<u32>()
 }
 
-fn part2(input: &str) -> usize {
-    420
+fn part2(input: &str) -> u32 {
+    let (_, cmds) = parse_input_part2(input).unwrap();
+
+    let (_, table) = cmds
+        .iter()
+        .fold((Vec::default(), BTreeMap::default()), fold_sizes);
+
+    let total_space = 70_000_000;
+    let needed_space = 30_000_000;
+    let used_space = table.first_key_value().unwrap().1;
+    let free_space = total_space - used_space;
+    let space_to_free = needed_space - free_space;
+
+    let mut sizes = table
+        .into_iter()
+        .filter(|(_, size)| size >= &space_to_free)
+        .map(|(_, size)| size)
+        .collect::<Vec<u32>>();
+
+    sizes.sort();
+
+    *sizes.first().unwrap()
 }
 
 #[cfg(test)]
@@ -220,6 +240,6 @@ $ ls
 7214296 k
 ";
 
-        assert_eq!(part2(input), 42);
+        assert_eq!(part2(input), 24933642);
     }
 }
