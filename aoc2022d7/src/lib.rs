@@ -1,11 +1,13 @@
+use std::collections::BTreeMap;
+
 use clap::Parser;
 use nom::{
     branch::alt,
-    bytes::complete::{is_a, tag, take_until},
+    bytes::complete::{is_a, tag},
     character::complete::{self, alpha1, line_ending, not_line_ending, space1},
-    combinator::{map, opt, value},
+    combinator::{map, opt},
     multi::separated_list1,
-    sequence::{delimited, pair, separated_pair, terminated, tuple},
+    sequence::{separated_pair, terminated, tuple},
     IResult,
 };
 
@@ -37,26 +39,22 @@ impl Cli {
 }
 
 #[derive(Debug)]
+enum Cd<'a> {
+    Root,
+    Up,
+    Down(&'a str),
+}
+
+#[derive(Debug)]
 enum Command<'a> {
-    Cd(&'a str),
-    Ls,
+    Cd(Cd<'a>),
+    Ls(Vec<Inode<'a>>),
 }
 
 #[derive(Debug)]
 enum Inode<'a> {
     Dir(&'a str),
     File { name: &'a str, size: u32 },
-}
-
-fn parse_command(input: &str) -> IResult<&str, Command> {
-    map(
-        tuple((tag("$ "), alpha1, space1, opt(not_line_ending), line_ending)),
-        |(_, cmd, _, args, _)| match cmd {
-            "cd" => Command::Cd(args.unwrap()),
-            "ls" => Command::Ls,
-            _ => unreachable!(),
-        },
-    )(input)
 }
 
 fn file(input: &str) -> IResult<&str, Inode> {
@@ -72,25 +70,89 @@ fn directory(input: &str) -> IResult<&str, Inode> {
     })(input)
 }
 
-fn parse_ls_output_line(input: &str) -> IResult<&str, Inode> {
-    terminated(alt((file, directory)), line_ending)(input)
+fn inodes(input: &str) -> IResult<&str, Vec<Inode>> {
+    separated_list1(line_ending, alt((file, directory)))(input)
 }
 
-fn parse_input_part1(input: &str) -> IResult<&str, ()> {
-    dbg!(parse_ls_output_line("dir d\n")?);
-    dbg!(parse_ls_output_line("14848518 b.txt\n")?);
+fn ls(input: &str) -> IResult<&str, Command> {
+    map(
+        tuple((terminated(tag("$ ls"), line_ending), inodes)),
+        |(_, inodes)| Command::Ls(inodes),
+    )(input)
+}
 
-    todo!()
+fn cd(input: &str) -> IResult<&str, Command> {
+    map(
+        separated_pair(tag("$ cd"), space1, not_line_ending),
+        |(_, name)| match name {
+            "/" => Command::Cd(Cd::Root),
+            ".." => Command::Cd(Cd::Up),
+            _ => Command::Cd(Cd::Down(name)),
+        },
+    )(input)
+}
+
+fn commands(input: &str) -> IResult<&str, Vec<Command>> {
+    separated_list1(line_ending, alt((ls, cd)))(input)
+}
+
+fn parse_input_part1(input: &str) -> IResult<&str, Vec<Command>> {
+    commands(input)
 }
 
 fn parse_input_part2(input: &str) -> IResult<&str, ()> {
     todo!()
 }
 
-fn part1(input: &str) -> usize {
-    parse_input_part1(input).unwrap();
+fn fold_sizes<'a>(
+    (mut stack, mut table): (Vec<&'a str>, BTreeMap<Vec<&'a str>, u32>),
+    cmd: &'a Command,
+) -> (Vec<&'a str>, BTreeMap<Vec<&'a str>, u32>) {
+    match cmd {
+        Command::Cd(Cd::Root) => {
+            stack.push("");
+        }
+        Command::Cd(Cd::Up) => {
+            stack.pop();
+        }
+        Command::Cd(Cd::Down(name)) => {
+            stack.push(name);
+        }
+        Command::Ls(inodes) => {
+            let size = inodes
+                .iter()
+                .filter_map(|inode| {
+                    if let Inode::File { size, .. } = inode {
+                        Some(size)
+                    } else {
+                        None
+                    }
+                })
+                .sum::<u32>();
 
-    420
+            for i in 0..stack.len() {
+                table
+                    .entry(stack[0..=i].to_vec())
+                    .and_modify(|v| *v += size)
+                    .or_insert(size);
+            }
+        }
+    };
+    (stack, table)
+}
+
+fn part1(input: &str) -> u32 {
+    let (_, cmds) = parse_input_part1(input).unwrap();
+
+    let (_, table) = cmds
+        .iter()
+        .fold((Vec::default(), BTreeMap::default()), fold_sizes);
+
+    table
+        .iter()
+        .filter(|(_, &size)| size < 100_000)
+        .map(|(_, size)| size)
+        .sum::<u32>()
 }
 
 fn part2(input: &str) -> usize {
@@ -128,7 +190,7 @@ $ ls
 7214296 k
 ";
 
-        assert_eq!(part1(input), 42);
+        assert_eq!(part1(input), 95437);
     }
 
     #[test]
